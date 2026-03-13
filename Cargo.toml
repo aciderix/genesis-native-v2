@@ -43,3 +43,6 @@ opt-level = 3
 # WASM support: getrandom needs js backend
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies.console_error_panic_hook]
+version = "0.1"
