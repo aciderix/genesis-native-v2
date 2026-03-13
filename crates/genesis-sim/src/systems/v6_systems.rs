@@ -24,12 +24,12 @@ use std::collections::{HashMap, HashSet};
 //   sig = seed & 0xFFFF
 //   for each type: sig = ((sig * 7 + floor(count / 2)) & 0xFFFF)
 
-pub fn immune_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut org_sigs: ResMut<OrgSignatures>,
-    counters: Res<SimCounters>,
+pub fn immune_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    org_reg: &mut OrganismRegistry,
+    org_sigs: &mut OrgSignatures,
+    counters: &SimCounters,
 ) {
     // Only recompute every 10 ticks
     if counters.tick % 10 != 0 {
@@ -80,6 +80,16 @@ pub fn immune_system(
     }
 }
 
+pub fn immune_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut org_sigs: ResMut<OrgSignatures>,
+    counters: Res<SimCounters>,
+) {
+    immune_inner(&mut *store, &*config, &mut *org_reg, &mut *org_sigs, &*counters);
+}
+
 // ─── V6.3: Symbiogenesis ───────────────────────────────────────────────────
 //
 // When two organisms with Membrane particles remain in close contact
@@ -94,14 +104,14 @@ pub fn immune_system(
 //      d. Merge stats (energy, fitness, etc.)
 //      e. Remove donor organism
 
-pub fn symbiogenesis_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut contacts: ResMut<ContactTracker>,
-    mut counters: ResMut<SimCounters>,
-    mut events: ResMut<EventLog>,
-    mut phylogeny: ResMut<PhylogenyTree>,
+pub fn symbiogenesis_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    org_reg: &mut OrganismRegistry,
+    contacts: &mut ContactTracker,
+    counters: &mut SimCounters,
+    events: &mut EventLog,
+    phylogeny: &mut PhylogenyTree,
 ) {
     let ws = config.world_size;
     let contact_range = config.bond_distance * 2.0;
@@ -380,6 +390,18 @@ pub fn symbiogenesis_system(
     }
 }
 
+pub fn symbiogenesis_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut contacts: ResMut<ContactTracker>,
+    mut counters: ResMut<SimCounters>,
+    mut events: ResMut<EventLog>,
+    mut phylogeny: ResMut<PhylogenyTree>,
+) {
+    symbiogenesis_inner(&mut *store, &*config, &mut *org_reg, &mut *contacts, &mut *counters, &mut *events, &mut *phylogeny);
+}
+
 // ─── V6.5: Sexual Reproduction ─────────────────────────────────────────────
 //
 // Two "ready" organisms can combine genetic material to produce offspring.
@@ -397,15 +419,15 @@ pub fn symbiogenesis_system(
 //   • Types alternate from parents with mutation
 //   • Chain bonds between child particles, close loop if 4+
 
-pub fn sexual_reproduce_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut counters: ResMut<SimCounters>,
-    mut events: ResMut<EventLog>,
-    mut fields: ResMut<SimFields>,
-    mut phylogeny: ResMut<PhylogenyTree>,
-    mut rng: ResMut<SimRng>,
+pub fn sexual_reproduce_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    org_reg: &mut OrganismRegistry,
+    counters: &mut SimCounters,
+    events: &mut EventLog,
+    fields: &mut SimFields,
+    phylogeny: &mut PhylogenyTree,
+    rng: &mut SimRng,
 ) {
     let ws = config.world_size;
     let ir = config.interaction_radius;
@@ -671,6 +693,19 @@ pub fn sexual_reproduce_system(
     }
 }
 
+pub fn sexual_reproduce_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut counters: ResMut<SimCounters>,
+    mut events: ResMut<EventLog>,
+    mut fields: ResMut<SimFields>,
+    mut phylogeny: ResMut<PhylogenyTree>,
+    mut rng: ResMut<SimRng>,
+) {
+    sexual_reproduce_inner(&mut *store, &*config, &mut *org_reg, &mut *counters, &mut *events, &mut *fields, &mut *phylogeny, &mut *rng);
+}
+
 // ─── M3: Ecological Niches ─────────────────────────────────────────────────
 //
 // For organisms with 3+ particles, apply a per-tick energy bonus based on
@@ -684,11 +719,11 @@ pub fn sexual_reproduce_system(
 //   Data:      0.01 * ratio
 //   Alpha:     0.015 * ratio
 
-pub fn niche_bonuses_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    org_reg: Res<OrganismRegistry>,
-    vents: Res<VentList>,
+pub fn niche_bonuses_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    org_reg: &OrganismRegistry,
+    vents: &VentList,
 ) {
     let ws = config.world_size;
     let solar = config.solar_strength;
@@ -770,4 +805,13 @@ pub fn niche_bonuses_system(
             store.energy[idx] += bonus;
         }
     }
+}
+
+pub fn niche_bonuses_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    org_reg: Res<OrganismRegistry>,
+    vents: Res<VentList>,
+) {
+    niche_bonuses_inner(&mut *store, &*config, &*org_reg, &*vents);
 }

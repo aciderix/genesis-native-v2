@@ -488,8 +488,36 @@ impl Default for SimCounters {
 // Event log
 // ---------------------------------------------------------------------------
 
-/// The type / category of a simulation event (for filtering & styling).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventType {
+    Bond,
+    Organism,
+    Reproduction,
+    Death,
+    Mutation,
+    Environment,
+    Predation,
+    Colony,
+    Deposit,
+    Milestone,
+    Combo,
+    Metabolism,
+    Gene,
+    Wave,
+    Specialize,
+    Epigenetic,
+    Symbol,
+    Multicell,
+    Tool,
+    Build,
+    Culture,
+    Metacog,
+    Symbiogenesis,
+    Sexual,
+    Immune,
+}
+
+/// The type / category of a simulation event (for filtering & styling).
 impl EventType {
     /// Return a lowercase string tag for this event type (used by UI).
     pub fn kind(&self) -> &'static str {
@@ -523,33 +551,41 @@ impl EventType {
     }
 }
 
-pub enum EventType {
-    Bond,
-    Organism,
-    Reproduction,
-    Death,
-    Mutation,
-    Environment,
-    Predation,
-    Colony,
-    Deposit,
-    Milestone,
-    Combo,
-    Metabolism,
-    Gene,
-    Wave,
-    Specialize,
-    Epigenetic,
-    Symbol,
-    Multicell,
-    Tool,
-    Build,
-    Culture,
-    Metacog,
-    Symbiogenesis,
-    Sexual,
-    Immune,
+impl From<&str> for EventType {
+    fn from(s: &str) -> Self {
+        match s {
+            "bond" => EventType::Bond,
+            "organism" => EventType::Organism,
+            "reproduction" => EventType::Reproduction,
+            "death" => EventType::Death,
+            "mutation" => EventType::Mutation,
+            "environment" => EventType::Environment,
+            "predation" => EventType::Predation,
+            "colony" => EventType::Colony,
+            "deposit" => EventType::Deposit,
+            "milestone" => EventType::Milestone,
+            "combo" => EventType::Combo,
+            "metabolism" => EventType::Metabolism,
+            "gene" => EventType::Gene,
+            "wave" => EventType::Wave,
+            "specialize" => EventType::Specialize,
+            "epigenetic" => EventType::Epigenetic,
+            "symbol" => EventType::Symbol,
+            "multicell" => EventType::Multicell,
+            "tool" => EventType::Tool,
+            "build" => EventType::Build,
+            "culture" => EventType::Culture,
+            "metacog" => EventType::Metacog,
+            "symbiogenesis" => EventType::Symbiogenesis,
+            "sexual" => EventType::Sexual,
+            "immune" => EventType::Immune,
+            _ => EventType::Environment,
+        }
+    }
 }
+
+
+
 
 /// A single event entry in the simulation log.
 #[derive(Debug, Clone)]
@@ -592,7 +628,7 @@ impl EventLog {
     pub fn iter(&self) -> impl Iterator<Item = &EventEntry> {
         self.events.iter()
     }
-}
+
 
     /// Return the N most recent events (newest last).
     pub fn recent(&self, n: usize) -> Vec<&EventEntry> {
@@ -600,6 +636,8 @@ impl EventLog {
         let skip = if len > n { len - n } else { 0 };
         self.events.iter().skip(skip).collect()
     }
+}
+
 
 // ---------------------------------------------------------------------------
 // Phylogeny tree

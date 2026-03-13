@@ -22,13 +22,13 @@ use std::collections::{HashMap, HashSet};
 ///   4. Update `colony_id` on each organism.
 ///
 /// Runs periodically (recommended: every ~10 ticks) to avoid excessive cost.
-pub fn detect_colonies_system(
-    store: Res<ParticleStore>,
-    config: Res<SimConfig>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut col_reg: ResMut<ColonyRegistry>,
-    mut events: ResMut<EventLog>,
-    counters: Res<SimCounters>,
+pub fn detect_colonies_inner(
+    store: &ParticleStore,
+    config: &SimConfig,
+    org_reg: &mut OrganismRegistry,
+    col_reg: &mut ColonyRegistry,
+    events: &mut EventLog,
+    counters: &SimCounters,
 ) {
     let tick = counters.tick;
 
@@ -188,6 +188,17 @@ pub fn detect_colonies_system(
     for (_cid, cinfo) in col_reg.colonies.iter_mut() {
         cinfo.age += 1;
     }
+}
+
+pub fn detect_colonies_system(
+    store: Res<ParticleStore>,
+    config: Res<SimConfig>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut col_reg: ResMut<ColonyRegistry>,
+    mut events: ResMut<EventLog>,
+    counters: Res<SimCounters>,
+) {
+    detect_colonies_inner(&*store, &*config, &mut *org_reg, &mut *col_reg, &mut *events, &*counters);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

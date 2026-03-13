@@ -27,10 +27,10 @@ use std::f32::consts::TAU;
 ///
 /// After the 8 iterations, colony bond averaging blends signals with 0.4 weight.
 /// Memory update: memory += (signal - memory) * 0.03, clamp [-2, 2].
-pub fn propagate_signals_system(
-    mut store: ResMut<ParticleStore>,
-    matrices: Res<SimMatrices>,
-    colonies: Res<ColonyRegistry>,
+pub fn propagate_signals_inner(
+    store: &mut ParticleStore,
+    matrices: &SimMatrices,
+    colonies: &ColonyRegistry,
 ) {
     let len = store.x.len();
     if len == 0 {
@@ -139,6 +139,14 @@ pub fn propagate_signals_system(
     }
 }
 
+pub fn propagate_signals_system(
+    mut store: ResMut<ParticleStore>,
+    matrices: Res<SimMatrices>,
+    colonies: Res<ColonyRegistry>,
+) {
+    propagate_signals_inner(&mut *store, &*matrices, &*colonies);
+}
+
 /// Update particle phases using a Kuramoto-model oscillator.
 ///
 /// Each alive particle's phase advances at a base rate plus type- and
@@ -149,9 +157,9 @@ pub fn propagate_signals_system(
 ///   for each bonded particle j:
 ///     phase += 0.03 * sig_cond[type_i][type_j] * sin(phase_j - phase_i)
 ///   wrap to [0, TAU)
-pub fn update_phase_system(
-    mut store: ResMut<ParticleStore>,
-    matrices: Res<SimMatrices>,
+pub fn update_phase_inner(
+    store: &mut ParticleStore,
+    matrices: &SimMatrices,
 ) {
     let len = store.x.len();
     if len == 0 {
@@ -197,4 +205,11 @@ pub fn update_phase_system(
         }
         store.phase[i] = (store.phase[i] + phase_deltas[i]).rem_euclid(TAU);
     }
+}
+
+pub fn update_phase_system(
+    mut store: ResMut<ParticleStore>,
+    matrices: Res<SimMatrices>,
+) {
+    update_phase_inner(&mut *store, &*matrices);
 }

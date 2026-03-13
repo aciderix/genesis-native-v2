@@ -15,9 +15,9 @@ use crate::util::SpatialGrid;
 ///
 /// It clears the grid and re-inserts every alive particle at its current
 /// position. Dead particles are skipped — they will be cleaned up separately.
-pub fn rebuild_grid_system(
-    mut grid: ResMut<SpatialGrid>,
-    store: Res<ParticleStore>,
+pub fn rebuild_grid_inner(
+    grid: &mut SpatialGrid,
+    store: &ParticleStore,
 ) {
     // Clear all grid cells (retains allocated memory for reuse)
     grid.clear();
@@ -30,4 +30,11 @@ pub fn rebuild_grid_system(
         }
         grid.insert(i, store.x[i], store.y[i], store.z[i]);
     }
+}
+
+pub fn rebuild_grid_system(
+    mut grid: ResMut<SpatialGrid>,
+    store: Res<ParticleStore>,
+) {
+    rebuild_grid_inner(&mut *grid, &*store);
 }

@@ -37,9 +37,9 @@ const DRAG: f32 = 0.03;
 ///
 /// Deposits are integrated normally (they just sit there with ~zero velocity),
 /// but their age still increments.
-pub fn integrate_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
+pub fn integrate_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
 ) {
     let ws = config.world_size;
     let ws2 = ws * 2.0; // full world diameter for wrapping
@@ -97,4 +97,11 @@ pub fn integrate_system(
         // --- 5. Age increment ---
         store.age[i] = store.age[i].wrapping_add(1);
     }
+}
+
+pub fn integrate_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+) {
+    integrate_inner(&mut *store, &*config);
 }

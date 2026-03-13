@@ -42,7 +42,6 @@ pub mod systems;
 // ── Imports ─────────────────────────────────────────────────────────────────
 
 use bevy::prelude::*;
-
 use config::{
     generate_config, mulberry32, randomize_matrix, SimConfig,
     BASE_AFFINITY, BASE_BOND_STRENGTH, BASE_SIGNAL_CONDUCTANCE,
@@ -60,6 +59,7 @@ use util::{ScalarField, SpatialGrid};
 ///
 /// ```rust,no_run
 /// use bevy::prelude::*;
+use bevy::ecs::system::SystemParam;
 /// use genesis_sim::GenesisSimPlugin;
 ///
 /// App::new()
@@ -132,12 +132,12 @@ impl Plugin for GenesisSimPlugin {
 
         for _ in 0..config.particle_count {
             let ptype =
-                ParticleStore::pick_type(&config.type_distribution, &mut || sim_rng.next());
+                ParticleStore::pick_type(&config.type_distribution, &mut sim_rng);
             let x = (sim_rng.next() - 0.5) * ws;
             let y = (sim_rng.next() - 0.5) * ws;
             let z = (sim_rng.next() - 0.5) * ws;
             let energy = 3.0 + sim_rng.next() * 7.0;
-            store.spawn(ptype, x, y, z, energy, &mut || sim_rng.next());
+            store.spawn(ptype, x, y, z, energy, &mut sim_rng);
         }
 
         // ── 7. Insert all resources ─────────────────────────────────────
@@ -207,6 +207,21 @@ fn seed_nutrients_system(
 
 // ── Main simulation tick ────────────────────────────────────────────────────
 
+
+/// Grouped advanced resources to stay within Bevy's 16-param limit.
+#[derive(SystemParam)]
+struct SimAdvancedParams<'w> {
+    org_sigs: ResMut<'w, OrgSignatures>,
+    contacts: ResMut<'w, ContactTracker>,
+    active_symbols: ResMut<'w, ActiveSymbolCodes>,
+    active_genes: ResMut<'w, ActiveGeneCount>,
+    cultural_count: ResMut<'w, CulturalEventCount>,
+    metacog_count: ResMut<'w, MetaCogOrgCount>,
+    tool_count: ResMut<'w, ToolGrabCount>,
+    build_sites: ResMut<'w, BuildSites>,
+    build_count: ResMut<'w, BuildStructureCount>,
+}
+
 /// The single `FixedUpdate` system that drives the entire simulation.
 ///
 /// It dereferences every `Res` / `ResMut` and calls plain-Rust helper
@@ -232,15 +247,7 @@ fn simulation_tick(
     mut rng: ResMut<SimRng>,
     mut stats: ResMut<SimStats>,
     mut history: ResMut<SimHistory>,
-    mut org_sigs: ResMut<OrgSignatures>,
-    mut contacts: ResMut<ContactTracker>,
-    mut active_symbols: ResMut<ActiveSymbolCodes>,
-    mut active_genes: ResMut<ActiveGeneCount>,
-    mut cultural_count: ResMut<CulturalEventCount>,
-    mut metacog_count: ResMut<MetaCogOrgCount>,
-    mut tool_count: ResMut<ToolGrabCount>,
-    mut build_sites: ResMut<BuildSites>,
-    mut build_count: ResMut<BuildStructureCount>,
+    mut adv: SimAdvancedParams,
 ) {
     let ticks = config.speed as u32;
 
@@ -290,6 +297,7 @@ fn simulation_tick(
             &mut fields,
             &org_reg,
             &mut rng,
+            &stats,
         );
 
         // ── Phase 5: Signals & phase ────────────────────────────────────
@@ -321,6 +329,7 @@ fn simulation_tick(
             &mut events,
             &mut counters,
             &mut phylogeny,
+            &stats,
         );
 
         // ── Phase 8: Advanced / gene expression (every tick) ────────────
@@ -329,7 +338,7 @@ fn simulation_tick(
             &mut store,
             &mut org_reg,
             &counters,
-            &mut active_genes,
+            &mut adv.active_genes,
         );
 
         // ── Phase 9: Reproduction (every 5 ticks) ──────────────────────
@@ -359,7 +368,7 @@ fn simulation_tick(
         }
 
         // ── Phase 11: Field diffusion & injection ───────────────────────
-        systems::fields::update_fields_inner(&mut fields, &counters, &vents, &config);
+        systems::fields::update_fields_inner(&mut fields, &counters, &config, &vents, &mut rng);
 
         // ── Phase 12: V6 systems (immune, symbiogenesis, sex, niches) ───
         if tick % 10 == 0 {
@@ -367,7 +376,7 @@ fn simulation_tick(
                 &mut store,
                 &config,
                 &mut org_reg,
-                &mut org_sigs,
+                &mut adv.org_sigs,
                 &counters,
             );
         }
@@ -376,7 +385,7 @@ fn simulation_tick(
                 &mut store,
                 &config,
                 &mut org_reg,
-                &mut contacts,
+                &mut adv.contacts,
                 &mut counters,
                 &mut events,
                 &mut phylogeny,
@@ -406,23 +415,23 @@ fn simulation_tick(
                 &config,
                 &counters,
                 &mut events,
-                &mut active_symbols,
+                &mut adv.active_symbols,
                 &mut rng,
             );
             systems::symbols_tools::tool_use_inner(
                 &mut store,
-                &org_reg,
+                &mut org_reg,
                 &config,
                 &mut events,
-                &mut tool_count,
+                &mut adv.tool_count,
                 &mut rng,
             );
             systems::symbols_tools::construction_inner(
                 &mut store,
                 &org_reg,
                 &config,
-                &mut build_sites,
-                &mut build_count,
+                &mut adv.build_sites,
+                &mut adv.build_count,
                 &mut events,
                 &mut rng,
             );
@@ -436,7 +445,7 @@ fn simulation_tick(
                 &config,
                 &counters,
                 &mut events,
-                &mut cultural_count,
+                &mut adv.cultural_count,
                 &mut fields,
                 &mut rng,
             );
@@ -445,7 +454,7 @@ fn simulation_tick(
                 &mut org_reg,
                 &mut events,
                 &counters,
-                &mut metacog_count,
+                &mut adv.metacog_count,
             );
         }
 
@@ -498,10 +507,10 @@ fn update_stats(
     }
 
     // Every bond is stored on both endpoints, so halve the count.
-    stats.bond_count = bond_count / 2;
+    stats.bond_count = (bond_count / 2) as usize;
     stats.total_energy = total_energy;
-    stats.organism_count = org_reg.organisms.len() as u32;
-    stats.colony_count = col_reg.colonies.len() as u32;
+    stats.organism_count = org_reg.organisms.len();
+    stats.colony_count = col_reg.colonies.len();
 
     for (_, org) in &org_reg.organisms {
         if org.generation > max_gen {
@@ -510,8 +519,8 @@ fn update_stats(
     }
     stats.max_generation = max_gen;
     stats.day_phase = day_night.phase;
-    stats.total_repro = counters.total_repro;
-    stats.total_pred = counters.total_pred;
+    stats.total_reproduction = counters.total_repro;
+    stats.total_predation = counters.total_pred;
 
     // Append to rolling history vectors.
     history.organisms.push(stats.organism_count as f32);

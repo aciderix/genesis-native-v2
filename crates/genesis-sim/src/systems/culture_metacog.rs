@@ -28,15 +28,15 @@ use std::collections::{HashMap, HashSet, VecDeque};
 //
 // **Behavioral effects**: memes modify particle behavior per category.
 
-pub fn culture_system(
-    mut store: ResMut<ParticleStore>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    config: Res<SimConfig>,
-    counters: Res<SimCounters>,
-    mut events: ResMut<EventLog>,
-    mut cultural_count: ResMut<CulturalEventCount>,
-    mut fields: ResMut<SimFields>,
-    mut rng: ResMut<SimRng>,
+pub fn culture_inner(
+    store: &mut ParticleStore,
+    org_reg: &mut OrganismRegistry,
+    config: &SimConfig,
+    counters: &SimCounters,
+    events: &mut EventLog,
+    cultural_count: &mut CulturalEventCount,
+    fields: &mut SimFields,
+    rng: &mut SimRng,
 ) {
     let tick = counters.tick;
     let ws = config.world_size;
@@ -300,6 +300,19 @@ pub fn culture_system(
     apply_meme_effects(&mut store);
 }
 
+pub fn culture_system(
+    mut store: ResMut<ParticleStore>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    config: Res<SimConfig>,
+    counters: Res<SimCounters>,
+    mut events: ResMut<EventLog>,
+    mut cultural_count: ResMut<CulturalEventCount>,
+    mut fields: ResMut<SimFields>,
+    mut rng: ResMut<SimRng>,
+) {
+    culture_inner(&mut *store, &mut *org_reg, &*config, &*counters, &mut *events, &mut *cultural_count, &mut *fields, &mut *rng);
+}
+
 /// Apply behavioral effects of cultural memes to particles.
 ///
 /// Meme categories:
@@ -380,12 +393,12 @@ fn apply_meme_effects(store: &mut ParticleStore) {
 //   - Enhanced learning (memory converges if energy > 5)
 //   - Signal coherence (0.97 * signal + 0.03 * memory)
 
-pub fn meta_cognition_system(
-    mut store: ResMut<ParticleStore>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut events: ResMut<EventLog>,
-    counters: Res<SimCounters>,
-    mut metacog_count: ResMut<MetaCogOrgCount>,
+pub fn meta_cognition_inner(
+    store: &mut ParticleStore,
+    org_reg: &mut OrganismRegistry,
+    events: &mut EventLog,
+    counters: &SimCounters,
+    metacog_count: &mut MetaCogOrgCount,
 ) {
     let tick = counters.tick;
     metacog_count.0 = 0;
@@ -576,4 +589,14 @@ pub fn meta_cognition_system(
                 0.97 * store.signal[idx] + 0.03 * store.memory[idx];
         }
     }
+}
+
+pub fn meta_cognition_system(
+    mut store: ResMut<ParticleStore>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut events: ResMut<EventLog>,
+    counters: Res<SimCounters>,
+    mut metacog_count: ResMut<MetaCogOrgCount>,
+) {
+    meta_cognition_inner(&mut *store, &mut *org_reg, &mut *events, &*counters, &mut *metacog_count);
 }

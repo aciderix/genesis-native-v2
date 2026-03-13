@@ -58,3 +58,19 @@ pub use culture_metacog::{culture_system, meta_cognition_system};
 
 // V6 systems (V6.2, V6.3, V6.5, M3)
 pub use v6_systems::{immune_system, symbiogenesis_system, sexual_reproduce_system, niche_bonuses_system};
+
+// Re-export inner functions for simulation_tick
+pub use grid::rebuild_grid_inner;
+pub use forces::apply_forces_inner;
+pub use integrate::integrate_inner;
+pub use bonds::{form_bonds_inner, break_bonds_inner};
+pub use organisms::detect_organisms_inner;
+pub use metabolism::metabolism_inner;
+pub use signals::{propagate_signals_inner, update_phase_inner};
+pub use reproduction::reproduce_inner;
+pub use colonies::detect_colonies_inner;
+pub use fields::update_fields_inner;
+pub use advanced::advanced_systems_inner;
+pub use symbols_tools::{symbols_inner, tool_use_inner, construction_inner};
+pub use culture_metacog::{culture_inner, meta_cognition_inner};
+pub use v6_systems::{immune_inner, symbiogenesis_inner, sexual_reproduce_inner, niche_bonuses_inner};

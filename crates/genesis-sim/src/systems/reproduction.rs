@@ -30,15 +30,15 @@ use std::f32::consts::TAU;
 ///   7. Set cooldowns: parent = 150, child = 100.
 ///   8. Child generation = parent.generation + 1.
 ///   9. Record phylogeny, inject wave & pheromone, emit event.
-pub fn reproduce_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    mut events: ResMut<EventLog>,
-    mut counters: ResMut<SimCounters>,
-    mut fields: ResMut<SimFields>,
-    mut phylogeny: ResMut<PhylogenyTree>,
-    mut rng: ResMut<SimRng>,
+pub fn reproduce_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    org_reg: &mut OrganismRegistry,
+    events: &mut EventLog,
+    counters: &mut SimCounters,
+    fields: &mut SimFields,
+    phylogeny: &mut PhylogenyTree,
+    rng: &mut SimRng,
 ) {
     let ws = config.world_size;
     let max_p = config.max_particles;
@@ -160,7 +160,7 @@ pub fn reproduce_system(
             tool_use_count: 0,
             build_score: 0.0,
             cultural_memory: Vec::new(),
-            meta_cog_depth: 0,
+            meta_cog_depth: 0.0,
             parent_id: parent_id_for_phylo as i32,
         };
         org_reg.organisms.insert(new_oid, child_info);
@@ -233,7 +233,7 @@ pub fn reproduce_system(
                     // Change type randomly (0..NUM_TYPES)
                     let new_type = (rng.next() * NUM_TYPES as f32) as u8;
                     if (new_type as usize) < NUM_TYPES {
-                        store.ptype[idx] = new_type;
+                        store.ptype[idx] = ParticleType::from_index(new_type as usize);
                     }
                     // Slightly perturb gene expression
                     store.gene_expr[idx] = (store.gene_expr[idx]
@@ -248,7 +248,7 @@ pub fn reproduce_system(
         }
 
         // ── Phylogeny record ────────────────────────────────────────────
-        phylogeny.record(parent_id_for_phylo, new_oid, parent_gen + 1);
+        phylogeny.add(new_oid, parent_id_for_phylo as i32, counters.tick, parent_gen + 1, child_pids.len());
 
         // ── Inject wave & pheromone at child position ───────────────────
         fields.wave_amp.inject(
@@ -279,4 +279,17 @@ pub fn reproduce_system(
             oinfo.repro_cooldown -= 1;
         }
     }
+}
+
+pub fn reproduce_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    mut events: ResMut<EventLog>,
+    mut counters: ResMut<SimCounters>,
+    mut fields: ResMut<SimFields>,
+    mut phylogeny: ResMut<PhylogenyTree>,
+    mut rng: ResMut<SimRng>,
+) {
+    reproduce_inner(&mut *store, &*config, &mut *org_reg, &mut *events, &mut *counters, &mut *fields, &mut *phylogeny, &mut *rng);
 }

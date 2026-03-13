@@ -90,12 +90,12 @@ const EPI_STRESS_MARK: f32 = 0.15;
 ///    - Catalyst proximity (catalysts boost nearby bond formation)
 ///    - Combo bonus, gene expression, epigenetic weight
 /// 4. Roll the dice and form the bond if probability check passes
-pub fn form_bonds_system(
-    mut store: ResMut<ParticleStore>,
-    grid: Res<SpatialGrid>,
-    config: Res<SimConfig>,
-    matrices: Res<SimMatrices>,
-    mut rng: ResMut<SimRng>,
+pub fn form_bonds_inner(
+    store: &mut ParticleStore,
+    grid: &SpatialGrid,
+    config: &SimConfig,
+    matrices: &SimMatrices,
+    rng: &mut SimRng,
 ) {
     let n = store.len();
     if n == 0 {
@@ -199,6 +199,16 @@ pub fn form_bonds_system(
     }
 }
 
+pub fn form_bonds_system(
+    mut store: ResMut<ParticleStore>,
+    grid: Res<SpatialGrid>,
+    config: Res<SimConfig>,
+    matrices: Res<SimMatrices>,
+    mut rng: ResMut<SimRng>,
+) {
+    form_bonds_inner(&mut *store, &*grid, &*config, &*matrices, &mut *rng);
+}
+
 // ---------------------------------------------------------------------------
 // Bond Breaking
 // ---------------------------------------------------------------------------
@@ -227,16 +237,16 @@ pub fn form_bonds_system(
 ///   - Energy is transferred from victim to predator
 ///   - Predation counter is incremented
 ///   - Danger symbol is emitted
-pub fn break_bonds_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    matrices: Res<SimMatrices>,
-    mut counters: ResMut<SimCounters>,
-    mut events: ResMut<EventLog>,
-    mut fields: ResMut<SimFields>,
-    orgs: Res<OrganismRegistry>,
-    mut rng: ResMut<SimRng>,
-    stats: Res<SimStats>,
+pub fn break_bonds_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    matrices: &SimMatrices,
+    counters: &mut SimCounters,
+    events: &mut EventLog,
+    fields: &mut SimFields,
+    orgs: &OrganismRegistry,
+    rng: &mut SimRng,
+    stats: &SimStats,
 ) {
     let n = store.len();
     if n == 0 {
@@ -412,4 +422,18 @@ pub fn break_bonds_system(
             EventType::Bond,
         );
     }
+}
+
+pub fn break_bonds_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    matrices: Res<SimMatrices>,
+    mut counters: ResMut<SimCounters>,
+    mut events: ResMut<EventLog>,
+    mut fields: ResMut<SimFields>,
+    orgs: Res<OrganismRegistry>,
+    mut rng: ResMut<SimRng>,
+    stats: Res<SimStats>,
+) {
+    break_bonds_inner(&mut *store, &*config, &*matrices, &mut *counters, &mut *events, &mut *fields, &*orgs, &mut *rng, &*stats);
 }

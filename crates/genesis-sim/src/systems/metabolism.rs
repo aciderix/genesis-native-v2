@@ -21,15 +21,15 @@ use crate::particle_store::{ParticleStore, SimRng};
 use std::f32::consts::TAU;
 
 /// Main metabolism system — runs every tick.
-pub fn metabolism_system(
-    mut store: ResMut<ParticleStore>,
-    config: Res<SimConfig>,
-    vents: Res<VentList>,
-    mut fields: ResMut<SimFields>,
-    mut day_night: ResMut<DayNightState>,
-    mut events: ResMut<EventLog>,
-    mut counters: ResMut<SimCounters>,
-    orgs: Res<OrganismRegistry>,
+pub fn metabolism_inner(
+    store: &mut ParticleStore,
+    config: &SimConfig,
+    vents: &VentList,
+    fields: &mut SimFields,
+    day_night: &mut DayNightState,
+    events: &mut EventLog,
+    counters: &mut SimCounters,
+    orgs: &OrganismRegistry,
 ) {
     let tick = counters.tick;
     let ws = config.world_size;
@@ -264,6 +264,19 @@ pub fn metabolism_system(
             }
         }
     }
+}
+
+pub fn metabolism_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    vents: Res<VentList>,
+    mut fields: ResMut<SimFields>,
+    mut day_night: ResMut<DayNightState>,
+    mut events: ResMut<EventLog>,
+    mut counters: ResMut<SimCounters>,
+    orgs: Res<OrganismRegistry>,
+) {
+    metabolism_inner(&mut *store, &*config, &*vents, &mut *fields, &mut *day_night, &mut *events, &mut *counters, &*orgs);
 }
 
 /// Handle deposit decay for a single particle index.

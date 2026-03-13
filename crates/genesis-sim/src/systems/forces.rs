@@ -118,15 +118,15 @@ const VENT_EFFECT_RADIUS: f32 = 12.0;
 /// - Neighbor queries use the spatial grid (must be rebuilt first via
 ///   `rebuild_grid_system`).
 /// - World wrapping is handled via `delta_wrapped` for correct distance/direction.
-pub fn apply_forces_system(
-    mut store: ResMut<ParticleStore>,
-    grid: Res<SpatialGrid>,
-    config: Res<SimConfig>,
-    matrices: Res<SimMatrices>,
-    vents: Res<VentList>,
-    fields: Res<SimFields>,
-    day_night: Res<DayNightState>,
-    mut rng: ResMut<SimRng>,
+pub fn apply_forces_inner(
+    store: &mut ParticleStore,
+    grid: &SpatialGrid,
+    config: &SimConfig,
+    matrices: &SimMatrices,
+    vents: &VentList,
+    fields: &SimFields,
+    day_night: &DayNightState,
+    rng: &mut SimRng,
 ) {
     let n = store.len();
     if n == 0 {
@@ -451,4 +451,17 @@ pub fn apply_forces_system(
         store.vy[i] += fy;
         store.vz[i] += fz;
     }
+}
+
+pub fn apply_forces_system(
+    mut store: ResMut<ParticleStore>,
+    grid: Res<SpatialGrid>,
+    config: Res<SimConfig>,
+    matrices: Res<SimMatrices>,
+    vents: Res<VentList>,
+    fields: Res<SimFields>,
+    day_night: Res<DayNightState>,
+    mut rng: ResMut<SimRng>,
+) {
+    apply_forces_inner(&mut *store, &*grid, &*config, &*matrices, &*vents, &*fields, &*day_night, &mut *rng);
 }

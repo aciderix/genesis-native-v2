@@ -22,15 +22,15 @@ use std::collections::HashSet;
 // Organisms with Data particles can *read* symbols at their centroid and
 // respond: food → attract, danger → flee, mating → boost repro readiness.
 
-pub fn symbols_system(
-    mut store: ResMut<ParticleStore>,
-    org_reg: Res<OrganismRegistry>,
-    mut fields: ResMut<SimFields>,
-    config: Res<SimConfig>,
-    counters: Res<SimCounters>,
-    mut events: ResMut<EventLog>,
-    mut active_symbols: ResMut<ActiveSymbolCodes>,
-    mut rng: ResMut<SimRng>,
+pub fn symbols_inner(
+    store: &mut ParticleStore,
+    org_reg: &OrganismRegistry,
+    fields: &mut SimFields,
+    config: &SimConfig,
+    counters: &SimCounters,
+    events: &mut EventLog,
+    active_symbols: &mut ActiveSymbolCodes,
+    rng: &mut SimRng,
 ) {
     let ws = config.world_size;
     let tick = counters.tick;
@@ -196,6 +196,19 @@ pub fn symbols_system(
     }
 }
 
+pub fn symbols_system(
+    mut store: ResMut<ParticleStore>,
+    org_reg: Res<OrganismRegistry>,
+    mut fields: ResMut<SimFields>,
+    config: Res<SimConfig>,
+    counters: Res<SimCounters>,
+    mut events: ResMut<EventLog>,
+    mut active_symbols: ResMut<ActiveSymbolCodes>,
+    mut rng: ResMut<SimRng>,
+) {
+    symbols_inner(&mut *store, &*org_reg, &mut *fields, &*config, &*counters, &mut *events, &mut *active_symbols, &mut *rng);
+}
+
 /// Helper: check if a particle is near any vent (rough heuristic using
 /// nutrient field density as a proxy).
 fn is_near_vent(store: &ParticleStore, idx: usize, _ws: f32) -> bool {
@@ -213,13 +226,13 @@ fn is_near_vent(store: &ParticleStore, idx: usize, _ws: f32) -> bool {
 // Tool usage: Motor holding a tool near an enemy gets extra damage potential.
 // Release: energy < 1 or random 1% chance per tick.
 
-pub fn tool_use_system(
-    mut store: ResMut<ParticleStore>,
-    mut org_reg: ResMut<OrganismRegistry>,
-    config: Res<SimConfig>,
-    mut events: ResMut<EventLog>,
-    mut tool_count: ResMut<ToolGrabCount>,
-    mut rng: ResMut<SimRng>,
+pub fn tool_use_inner(
+    store: &mut ParticleStore,
+    org_reg: &mut OrganismRegistry,
+    config: &SimConfig,
+    events: &mut EventLog,
+    tool_count: &mut ToolGrabCount,
+    rng: &mut SimRng,
 ) {
     let ws = config.world_size;
     let bond_dist = config.bond_distance;
@@ -312,6 +325,17 @@ pub fn tool_use_system(
     }
 }
 
+pub fn tool_use_system(
+    mut store: ResMut<ParticleStore>,
+    mut org_reg: ResMut<OrganismRegistry>,
+    config: Res<SimConfig>,
+    mut events: ResMut<EventLog>,
+    mut tool_count: ResMut<ToolGrabCount>,
+    mut rng: ResMut<SimRng>,
+) {
+    tool_use_inner(&mut *store, &mut *org_reg, &*config, &mut *events, &mut *tool_count, &mut *rng);
+}
+
 // ─── P4.2: Intentional Construction ────────────────────────────────────────
 //
 // Organisms with build_score > 0 or with Motor + Alpha + Membrane composition
@@ -319,14 +343,14 @@ pub fn tool_use_system(
 // quantized grid positions when signal > 0.5.  When 3+ deposits accumulate
 // at the same site, a "structure" is formed that provides area energy bonuses.
 
-pub fn construction_system(
-    mut store: ResMut<ParticleStore>,
-    org_reg: Res<OrganismRegistry>,
-    config: Res<SimConfig>,
-    mut build_sites: ResMut<BuildSites>,
-    mut build_count: ResMut<BuildStructureCount>,
-    mut events: ResMut<EventLog>,
-    mut rng: ResMut<SimRng>,
+pub fn construction_inner(
+    store: &mut ParticleStore,
+    org_reg: &OrganismRegistry,
+    config: &SimConfig,
+    build_sites: &mut BuildSites,
+    build_count: &mut BuildStructureCount,
+    events: &mut EventLog,
+    rng: &mut SimRng,
 ) {
     let ws = config.world_size;
     let len = store.id.len();
@@ -456,4 +480,16 @@ pub fn construction_system(
             }
         }
     }
+}
+
+pub fn construction_system(
+    mut store: ResMut<ParticleStore>,
+    org_reg: Res<OrganismRegistry>,
+    config: Res<SimConfig>,
+    mut build_sites: ResMut<BuildSites>,
+    mut build_count: ResMut<BuildStructureCount>,
+    mut events: ResMut<EventLog>,
+    mut rng: ResMut<SimRng>,
+) {
+    construction_inner(&mut *store, &*org_reg, &*config, &mut *build_sites, &mut *build_count, &mut *events, &mut *rng);
 }

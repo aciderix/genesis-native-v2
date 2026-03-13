@@ -20,7 +20,7 @@ fn main() {
             ..default()
         }))
         // ── Genesis crates ─────────────────────────────────────────────
-        .add_plugins(GenesisSimPlugin)
+        .add_plugins(GenesisSimPlugin::default())
         .add_plugins(GenesisRenderPlugin)
         .add_plugins(GenesisUiPlugin)
         // ── Launch ─────────────────────────────────────────────────────

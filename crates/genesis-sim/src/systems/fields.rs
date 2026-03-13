@@ -19,12 +19,12 @@ use crate::particle_store::SimRng;
 ///   • Wave (amp/prev):    2-frame wave equation with 0.98 damping
 ///   • Metabolites a/b/c:  diffuse 0.04, decay 0.005
 ///   • Symbol channels:    diffuse 0.06, decay 0.015
-pub fn update_fields_system(
-    mut fields: ResMut<SimFields>,
-    counters: Res<SimCounters>,
-    config: Res<SimConfig>,
-    vents: Res<VentList>,
-    mut rng: ResMut<SimRng>,
+pub fn update_fields_inner(
+    fields: &mut SimFields,
+    counters: &SimCounters,
+    config: &SimConfig,
+    vents: &VentList,
+    rng: &mut SimRng,
 ) {
     let tick = counters.tick;
 
@@ -131,4 +131,14 @@ pub fn update_fields_system(
             fields.nutrient.add(rx, ry, rz, 0.2);
         }
     }
+}
+
+pub fn update_fields_system(
+    mut fields: ResMut<SimFields>,
+    counters: Res<SimCounters>,
+    config: Res<SimConfig>,
+    vents: Res<VentList>,
+    mut rng: ResMut<SimRng>,
+) {
+    update_fields_inner(&mut *fields, &*counters, &*config, &*vents, &mut *rng);
 }
