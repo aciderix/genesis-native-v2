@@ -5,6 +5,7 @@
 //! and a colour-coded event log — all rendered every frame via `bevy_egui`.
 
 use bevy::prelude::*;
+use bevy::ecs::system::SystemParam;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 use genesis_sim::components::{CellRole, ParticleType, NUM_TYPES};
@@ -213,6 +214,17 @@ const SPEED_PRESETS: &[(f32, &str)] = &[
 // Main UI system
 // ──────────────────────────────────────────────────────────────────────────────
 
+/// Grouped advanced era-detection resources to stay within Bevy's 16-param limit.
+#[derive(SystemParam)]
+struct UiEraParams<'w> {
+    symbols: Res<'w, ActiveSymbolCodes>,
+    genes: Res<'w, ActiveGeneCount>,
+    metabolite: Res<'w, MetaboliteFlowRate>,
+    memes: Res<'w, ActiveMemes>,
+    metacog: Res<'w, MetaCogOrgCount>,
+    build: Res<'w, BuildStructureCount>,
+}
+
 /// The single Bevy system that drives the entire UI each frame.
 fn ui_system(
     mut contexts: EguiContexts,
@@ -227,12 +239,7 @@ fn ui_system(
     mut ui_state: ResMut<UiState>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    adv_symbols: Res<ActiveSymbolCodes>,
-    adv_genes: Res<ActiveGeneCount>,
-    adv_metabolite: Res<MetaboliteFlowRate>,
-    adv_memes: Res<ActiveMemes>,
-    adv_metacog: Res<MetaCogOrgCount>,
-    adv_build: Res<BuildStructureCount>,
+    era_params: UiEraParams,
 ) {
     // ── Keyboard shortcuts ──────────────────────────────────────────────
     handle_keyboard(&keyboard, &mut config, &mut ui_state);
@@ -260,8 +267,8 @@ fn ui_system(
 
     let era = detect_era(
         &stats, &counters, &store, &org_reg,
-        &adv_symbols, &adv_genes, &adv_metabolite,
-        &adv_memes, &adv_metacog, &adv_build,
+        &era_params.symbols, &era_params.genes, &era_params.metabolite,
+        &era_params.memes, &era_params.metacog, &era_params.build,
     );
     let fps = 1.0 / time.delta_secs().max(1e-6);
 
