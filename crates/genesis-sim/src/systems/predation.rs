@@ -2,22 +2,22 @@ use bevy::prelude::*;
 use crate::config::SimConfig;
 use crate::particle_store::ParticleStore;
 use crate::resources::SimRng;
+use crate::util::spatial_grid::SpatialGrid;
 
 /// Predation: larger, more energetic particles can consume smaller ones.
 ///
-/// Conditions for predation:
-/// 1. Predator energy > prey energy × min_energy_ratio
-/// 2. Distance < predation_radius
-/// 3. Predator pays predation_cost
-/// 4. Predator gains prey_energy × predation_efficiency
+/// Uses the SpatialGrid from sensing_system for O(n) neighbor queries
+/// instead of O(n²) brute force.
 pub fn predation_system(
     mut store: ResMut<ParticleStore>,
     config: Res<SimConfig>,
     mut rng: ResMut<SimRng>,
+    grid: Res<SpatialGrid>,
 ) {
     let count = store.count;
     let r2 = config.predation_radius * config.predation_radius;
     let mut kills: Vec<(usize, usize)> = Vec::new(); // (predator, prey)
+    let mut neighbors_buf = Vec::new();
 
     for i in 0..count {
         if !store.alive[i] {
@@ -28,8 +28,12 @@ pub fn predation_system(
             continue;
         }
 
-        for j in 0..count {
-            if i == j || !store.alive[j] {
+        // Use spatial grid for neighbor query instead of scanning all particles
+        neighbors_buf.clear();
+        grid.query(store.x[i], store.y[i], config.predation_radius, &mut neighbors_buf);
+
+        for &j in &neighbors_buf {
+            if j >= count || i == j || !store.alive[j] {
                 continue;
             }
             // Already scheduled to die?
