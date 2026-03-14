@@ -194,6 +194,10 @@ impl ComposableGenome {
             {
                 length += 1;
             }
+            // Clamp to avoid out-of-bounds when we reach the end of tokens
+            if idx + length > tokens.len() {
+                break;
+            }
             // The fragment tokens[idx..idx+length] is new — add it
             dictionary.insert(tokens[idx..idx + length].to_vec());
             fragment_count += 1;
