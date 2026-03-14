@@ -1,9 +1,7 @@
 [package]
-name = "genesis-render"
+name = "genesis-metrics"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { workspace = true }
 genesis-core = { path = "../genesis-core" }
-genesis-sim = { path = "../genesis-sim" }

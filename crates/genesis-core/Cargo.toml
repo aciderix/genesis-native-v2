@@ -1,0 +1,8 @@
+[package]
+name = "genesis-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+smallvec = { version = "1", features = ["const_generics", "serde"] }
+serde = { version = "1", features = ["derive"] }
