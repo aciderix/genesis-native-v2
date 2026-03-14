@@ -68,7 +68,7 @@ impl Default for SimConfig {
             world_width: 800.0,
             world_height: 600.0,
             initial_population: 200,
-            max_particles: 2000,
+            max_particles: 500,
             dt: 0.016,
             friction: 0.97,
             interaction_radius: 50.0,

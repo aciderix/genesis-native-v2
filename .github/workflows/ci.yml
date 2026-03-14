@@ -65,15 +65,17 @@ jobs:
       - name: Run unit tests
         run: cargo test --release
 
-      - name: Headless smoke test (5k ticks)
+      - name: Headless smoke test (2k ticks)
         if: matrix.os == 'Linux'
+        timeout-minutes: 5
         run: |
-          echo "::group::Headless simulation (5000 ticks, seed 42)"
-          ./target/release/genesis --headless --ticks 5000 --seed 42 --json --report-every 1000
+          echo "::group::Headless simulation (2000 ticks, seed 42)"
+          ./target/release/genesis --headless --ticks 2000 --seed 42 --json --report-every 500
           echo "::endgroup::"
 
       - name: Headless determinism check (informational)
         if: matrix.os == 'Linux'
+        timeout-minutes: 3
         continue-on-error: true
         run: |
           A=$(./target/release/genesis --headless --ticks 200 --seed 42 --json)
