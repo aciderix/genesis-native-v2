@@ -38,6 +38,7 @@ pub mod resources;
 pub mod particle_store;
 pub mod util;
 pub mod systems;
+pub mod saveload;
 
 // ── Imports ─────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,8 @@ impl Plugin for GenesisSimPlugin {
             .insert_resource(MetaboliteFlowRate::default())
             .insert_resource(ActiveGeneCount::default())
             .insert_resource(CulturalEventCount::default())
-            .insert_resource(DayNightState::default());
+            .insert_resource(DayNightState::default())
+            .insert_resource(SaveLoadRequest::default());
 
         // ── 8. Systems ──────────────────────────────────────────────────
         // Startup: seed the nutrient field around hydrothermal vents.
@@ -181,7 +183,8 @@ impl Plugin for GenesisSimPlugin {
             .add_systems(
                 FixedUpdate,
                 simulation_tick.run_if(|config: Res<SimConfig>| !config.paused),
-            );
+            )
+            .add_systems(Update, handle_save_load_system);
     }
 }
 
@@ -541,4 +544,73 @@ fn update_stats(
     history.energy.push(total_energy);
     history.generation.push(max_gen as f32);
     history.colonies.push(stats.colony_count as f32);
+}
+
+// ── Save / Load system ───────────────────────────────────────────────────────
+
+/// Handles save/load requests from the UI.
+///
+/// Runs in `Update` so it can act even when the simulation is paused.
+/// On native platforms, writes/reads `genesis_save.json` in the current
+/// working directory.  On WASM, save/load is a no-op (not yet supported).
+fn handle_save_load_system(
+    mut store: ResMut<ParticleStore>,
+    mut counters: ResMut<SimCounters>,
+    mut phylogeny: ResMut<PhylogenyTree>,
+    mut request: ResMut<SaveLoadRequest>,
+) {
+    if request.save_requested {
+        request.save_requested = false;
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let json = saveload::serialize_state(&store, &counters, &phylogeny);
+            match std::fs::write("genesis_save.json", &json) {
+                Ok(_) => {
+                    let kb = json.len() / 1024;
+                    request.status_message = format!("✅ Saved ({kb} KB)");
+                }
+                Err(e) => {
+                    request.status_message = format!("❌ Save failed: {e}");
+                }
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            request.status_message = "⚠ Save not available on web".to_string();
+        }
+        request.status_tick = counters.tick;
+    }
+
+    if request.load_requested {
+        request.load_requested = false;
+        #[cfg(not(target_family = "wasm"))]
+        {
+            match std::fs::read_to_string("genesis_save.json") {
+                Ok(json) => {
+                    match saveload::deserialize_state(
+                        &json,
+                        &mut store,
+                        &mut counters,
+                        &mut phylogeny,
+                    ) {
+                        Ok(_) => {
+                            request.status_message =
+                                format!("✅ Loaded (tick {})", counters.tick);
+                        }
+                        Err(e) => {
+                            request.status_message = format!("❌ Load failed: {e}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    request.status_message = format!("❌ File not found: {e}");
+                }
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            request.status_message = "⚠ Load not available on web".to_string();
+        }
+        request.status_tick = counters.tick;
+    }
 }

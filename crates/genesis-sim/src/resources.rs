@@ -867,3 +867,20 @@ impl Plugin for SimResourcesPlugin {
             .init_resource::<DayNightState>();
     }
 }
+
+// ---------------------------------------------------------------------------
+// Save / Load request flags
+// ---------------------------------------------------------------------------
+
+/// Flags for save/load actions, set by the UI and consumed by the sim.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SaveLoadRequest {
+    /// When `true`, the simulation should save its state to a file.
+    pub save_requested: bool,
+    /// When `true`, the simulation should load state from a file.
+    pub load_requested: bool,
+    /// Status message shown in the UI (e.g. "Saved!", "Load failed: …").
+    pub status_message: String,
+    /// Tick at which the status was set (for auto-clearing).
+    pub status_tick: u64,
+}

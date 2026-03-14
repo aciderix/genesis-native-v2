@@ -223,6 +223,7 @@ struct UiEraParams<'w> {
     memes: Res<'w, ActiveMemes>,
     metacog: Res<'w, MetaCogOrgCount>,
     build: Res<'w, BuildStructureCount>,
+    save_load: ResMut<'w, SaveLoadRequest>,
 }
 
 /// The single Bevy system that drives the entire UI each frame.
@@ -239,10 +240,19 @@ fn ui_system(
     mut ui_state: ResMut<UiState>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    era_params: UiEraParams,
+    mut era_params: UiEraParams,
 ) {
     // ── Keyboard shortcuts ──────────────────────────────────────────────
     handle_keyboard(&keyboard, &mut config, &mut ui_state);
+
+    // Save/Load shortcuts (Ctrl+S / Ctrl+O)
+    let ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+    if ctrl && keyboard.just_pressed(KeyCode::KeyS) {
+        era_params.save_load.save_requested = true;
+    }
+    if ctrl && keyboard.just_pressed(KeyCode::KeyO) {
+        era_params.save_load.load_requested = true;
+    }
 
     let ctx = contexts.ctx_mut();
 
@@ -279,7 +289,7 @@ fn ui_system(
 
     // ── 2. Left panel: Controls ─────────────────────────────────────────
     if ui_state.show_controls {
-        draw_controls_panel(ctx, &mut config, &stats, &mut ui_state);
+        draw_controls_panel(ctx, &mut config, &stats, &mut ui_state, &mut era_params.save_load);
     }
 
     // ── 3. Right panel: Inspector ───────────────────────────────────────
@@ -472,6 +482,7 @@ fn draw_controls_panel(
     config: &mut SimConfig,
     stats: &SimStats,
     ui_state: &mut UiState,
+    save_load: &mut SaveLoadRequest,
 ) {
     egui::SidePanel::left("controls_panel")
         .default_width(220.0)
@@ -539,6 +550,47 @@ fn draw_controls_panel(
                 .clicked()
             {
                 ui_state.reset_requested = true;
+            }
+
+            ui.add_space(6.0);
+            ui.separator();
+            ui.add_space(4.0);
+            ui.colored_label(egui::Color32::from_rgb(140, 200, 255), "💾 Save / Load");
+            ui.add_space(2.0);
+
+            // Save button
+            if ui
+                .add(
+                    egui::Button::new("💾 Save  (Ctrl+S)")
+                        .fill(egui::Color32::from_rgb(40, 80, 140)),
+                )
+                .clicked()
+            {
+                save_load.save_requested = true;
+            }
+
+            // Load button
+            if ui
+                .add(
+                    egui::Button::new("📂 Load  (Ctrl+O)")
+                        .fill(egui::Color32::from_rgb(40, 120, 80)),
+                )
+                .clicked()
+            {
+                save_load.load_requested = true;
+            }
+
+            // Status message (auto-clears after 200 ticks)
+            if !save_load.status_message.is_empty() {
+                ui.add_space(4.0);
+                let color = if save_load.status_message.starts_with('✅') {
+                    egui::Color32::from_rgb(100, 255, 140)
+                } else if save_load.status_message.starts_with('❌') {
+                    egui::Color32::from_rgb(255, 100, 100)
+                } else {
+                    egui::Color32::from_rgb(255, 220, 100)
+                };
+                ui.colored_label(color, &save_load.status_message);
             }
 
             ui.add_space(8.0);
