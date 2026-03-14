@@ -2,7 +2,7 @@ name: CI — Build & Test
 
 on:
   push:
-    branches: [main, feat/cli-headless]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -70,22 +70,6 @@ jobs:
         run: |
           echo "::group::Headless simulation (5000 ticks, seed 42)"
           ./target/release/genesis --headless --ticks 5000 --seed 42 --json --report-every 1000
-          echo "::endgroup::"
-
-      - name: "Headless long run — 100k ticks × speed 1"
-        if: matrix.os == 'Linux'
-        timeout-minutes: 30
-        run: |
-          echo "::group::100k ticks @ speed 1 (seed 42)"
-          ./target/release/genesis --headless --ticks 100000 --seed 42 --speed 1 --json --report-every 10000
-          echo "::endgroup::"
-
-      - name: "Headless long run — 100k ticks × speed 20"
-        if: matrix.os == 'Linux'
-        timeout-minutes: 30
-        run: |
-          echo "::group::100k ticks @ speed 20 (seed 42)"
-          ./target/release/genesis --headless --ticks 100000 --seed 42 --speed 20 --json --report-every 10000
           echo "::endgroup::"
 
       - name: Headless determinism check (informational)

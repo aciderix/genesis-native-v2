@@ -1,0 +1,93 @@
+name: Stress Test — 100k ticks
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticks:
+        description: "Number of ticks to simulate"
+        required: false
+        default: "100000"
+      seed:
+        description: "PRNG seed"
+        required: false
+        default: "42"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  stress-test:
+    name: Stress Test — 100k ticks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libx11-dev \
+            libasound2-dev \
+            libudev-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libvulkan-dev
+
+      - name: Build (release)
+        run: cargo build --release
+
+      - name: "Headless long run — ${{ inputs.ticks }} ticks × speed 1"
+        timeout-minutes: 30
+        run: |
+          echo "::group::${{ inputs.ticks }} ticks @ speed 1 (seed ${{ inputs.seed }})"
+          ./target/release/genesis \
+            --headless \
+            --ticks ${{ inputs.ticks }} \
+            --seed ${{ inputs.seed }} \
+            --speed 1 \
+            --json \
+            --report-every 10000
+          echo "::endgroup::"
+
+      - name: "Headless long run — ${{ inputs.ticks }} ticks × speed 20"
+        timeout-minutes: 30
+        run: |
+          echo "::group::${{ inputs.ticks }} ticks @ speed 20 (seed ${{ inputs.seed }})"
+          ./target/release/genesis \
+            --headless \
+            --ticks ${{ inputs.ticks }} \
+            --seed ${{ inputs.seed }} \
+            --speed 20 \
+            --json \
+            --report-every 10000
+          echo "::endgroup::"
+
+      - name: Compare speed 1 vs speed 20 (determinism)
+        continue-on-error: true
+        run: |
+          echo "Running 1000-tick comparison..."
+          A=$(./target/release/genesis --headless --ticks 1000 --seed ${{ inputs.seed }} --speed 1 --json)
+          B=$(./target/release/genesis --headless --ticks 1000 --seed ${{ inputs.seed }} --speed 20 --json)
+          if [ "$A" = "$B" ]; then
+            echo "✅ Speed 1 and Speed 20 produce identical results"
+          else
+            echo "⚠️ Results differ between speed 1 and speed 20"
+            echo "Speed 1:  $A"
+            echo "Speed 20: $B"
+          fi
