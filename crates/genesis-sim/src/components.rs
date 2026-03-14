@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use genesis_core::cell_role::CellRole;
 use genesis_core::chemistry::NUM_CHEMICALS;
 use genesis_core::genome::ComposableGenome;
 

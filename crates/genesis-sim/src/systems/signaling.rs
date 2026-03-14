@@ -23,14 +23,19 @@ pub fn signaling_system(
 
         let (gx, gy) = env.world_to_grid(store.x[i], store.y[i]);
 
-        for &(ch, amount) in &store.signal_emit[i] {
+        // Clone the emit queue to avoid borrow conflict
+        let emissions: Vec<(usize, f32)> = store.signal_emit[i].clone();
+        let mut energy_cost = 0.0f32;
+
+        for &(ch, amount) in &emissions {
             if ch < NUM_CHEMICALS {
                 let deposit = amount * config.signal_deposit_rate;
                 env.add(ch, gx, gy, deposit);
-
-                // Small energy cost for signaling
-                store.energy[i] -= deposit * 0.01;
+                energy_cost += deposit * 0.01;
             }
         }
+
+        // Small energy cost for signaling
+        store.energy[i] -= energy_cost;
     }
 }

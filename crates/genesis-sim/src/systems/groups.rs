@@ -114,7 +114,7 @@ pub fn groups_system(
             store.roles[i] = CellRole::Undifferentiated;
         } else {
             // Determine role based on bond count relative to group
-            let bond_count = store.bonds[i].len();
+            let _bond_count = store.bonds[i].len();
             // Count how many bonds connect to same-group members
             let group_bond_count = store.bonds[i].iter()
                 .filter(|&&(j, _)| j < count && store.alive[j] && store.group_ids[j] == gid)
