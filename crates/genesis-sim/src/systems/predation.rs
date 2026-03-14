@@ -29,8 +29,7 @@ pub fn predation_system(
         }
 
         // Use spatial grid for neighbor query instead of scanning all particles
-        neighbors_buf.clear();
-        grid.query(store.x[i], store.y[i], config.predation_radius, &mut neighbors_buf);
+        grid.query_into(store.x[i], store.y[i], &mut neighbors_buf);
 
         for &j in &neighbors_buf {
             if j >= count || i == j || !store.alive[j] {
