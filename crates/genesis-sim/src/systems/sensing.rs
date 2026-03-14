@@ -26,6 +26,17 @@ pub fn sensing_system(
         }
     }
 
+    // Pre-compute group sizes O(n) instead of O(n²)
+    let mut group_size_map: std::collections::HashMap<i32, usize> = std::collections::HashMap::new();
+    for i in 0..count {
+        if store.alive[i] {
+            let gid = store.group_ids[i];
+            if gid >= 0 {
+                *group_size_map.entry(gid).or_insert(0) += 1;
+            }
+        }
+    }
+
     // Pre-compute sensor data for all particles
     let mut sensor_data: Vec<SensorInput> = vec![SensorInput::default(); count];
     let mut neighbors_buf = Vec::new();
@@ -99,16 +110,10 @@ pub fn sensing_system(
             }
         }
 
-        // Group size
+        // Group size (O(1) lookup from pre-computed map)
         let gid = store.group_ids[i];
         if gid >= 0 {
-            let mut gsize = 0usize;
-            for j in 0..count {
-                if store.alive[j] && store.group_ids[j] == gid {
-                    gsize += 1;
-                }
-            }
-            sensor_data[i].group_size = gsize;
+            sensor_data[i].group_size = group_size_map.get(&gid).copied().unwrap_or(0);
         }
     }
 
