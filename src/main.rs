@@ -20,6 +20,8 @@ struct Cli {
     report_every: u64,
     #[arg(long)]
     speed: Option<f32>,
+    #[arg(long, default_value_t = 0)]
+    seed: u64,
 }
 
 fn main() {
@@ -71,11 +73,13 @@ fn setup_camera(mut commands: Commands) {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
+#[allow(dead_code)]
 struct HeadlessConfig {
     target_ticks: u64,
     report_every: u64,
     json_output: bool,
     speed: f32,
+    seed: u64,
     start_time: std::time::Instant,
 }
 
@@ -83,20 +87,26 @@ struct HeadlessConfig {
 fn run_headless(cli: &Cli) {
     use std::time::Duration;
     let speed = cli.speed.unwrap_or(200.0);
+    let seed = cli.seed;
     if !cli.json {
         eprintln!("🧬 Genesis 2.0 — Headless Mode");
         eprintln!("   Ticks:  {}", cli.ticks);
         eprintln!("   Speed:  {}×", speed);
+        if seed != 0 {
+            eprintln!("   Seed:   {}", seed);
+        }
         eprintln!();
     }
     App::new()
         .add_plugins(MinimalPlugins.set(bevy::app::ScheduleRunnerPlugin::run_loop(Duration::ZERO)))
         .add_plugins(GenesisSimPlugin)
+        .insert_resource(genesis_sim::resources::SimRng::new(if seed == 0 { rand::random() } else { seed }))
         .insert_resource(HeadlessConfig {
             target_ticks: cli.ticks,
             report_every: cli.report_every,
             json_output: cli.json,
             speed,
+            seed,
             start_time: std::time::Instant::now(),
         })
         .add_systems(Update, headless_monitor)
@@ -123,6 +133,7 @@ fn headless_monitor(
             let elapsed = hcfg.start_time.elapsed().as_secs_f64();
             let tps = current_tick as f64 / elapsed;
             let output = serde_json::json!({
+                "seed": hcfg.seed,
                 "tick": current_tick,
                 "elapsed_seconds": (elapsed * 100.0).round() / 100.0,
                 "ticks_per_second": tps.round(),

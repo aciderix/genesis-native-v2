@@ -35,6 +35,7 @@ genesis-sim = { path = "crates/genesis-sim" }
 genesis-render = { path = "crates/genesis-render" }
 genesis-ui = { path = "crates/genesis-ui" }
 serde_json = { workspace = true }
+rand = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 clap = { version = "4", features = ["derive"] }
