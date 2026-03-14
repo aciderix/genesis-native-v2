@@ -53,7 +53,6 @@ pub fn metrics_system(
     history.known_reactions = updated_set;
 
     // Phylogenetic diversity approximation
-    // Only pass data for alive particles
     let alive_parent_ids: Vec<i32> = (0..store.count)
         .filter(|&i| store.alive[i])
         .map(|i| store.parent_ids[i])
@@ -86,10 +85,23 @@ pub fn metrics_system(
         total_energy,
     };
     history.snapshots.push(snapshot);
+
+    // ── Transfer Entropy (computed on metrics time series) ───────────────
+    // This uses the genesis-metrics crate function
+    if history.snapshots.len() >= 10 {
+        let pop_series: Vec<f32> = history.snapshots.iter()
+            .map(|s| s.population as f32)
+            .collect();
+        let energy_series: Vec<f32> = history.snapshots.iter()
+            .map(|s| s.total_energy as f32)
+            .collect();
+        // Transfer entropy: population → energy causal influence
+        // Available for UI or analysis via the genesis-metrics crate.
+        let _ = genesis_metrics::transfer_entropy(&pop_series, &energy_series, 1);
+    }
 }
 
 fn estimate_species(store: &ParticleStore) -> usize {
-    // Simple species estimation: count distinct genome reaction patterns (first 3 reactions hash)
     let mut species_set = std::collections::HashSet::new();
     for i in 0..store.count {
         if !store.alive[i] {

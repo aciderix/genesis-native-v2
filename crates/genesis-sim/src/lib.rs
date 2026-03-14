@@ -2,18 +2,22 @@ pub mod components;
 pub mod config;
 pub mod particle_store;
 pub mod resources;
+pub mod saveload;
 pub mod systems;
+pub mod util;
 
 use bevy::prelude::*;
 use config::SimConfig;
 use particle_store::ParticleStore;
 use resources::*;
+use util::SpatialGrid;
 
 pub struct GenesisSimPlugin;
 
 impl Plugin for GenesisSimPlugin {
     fn build(&self, app: &mut App) {
         let config = SimConfig::default();
+        let grid = SpatialGrid::new(config.interaction_radius);
         app.insert_resource(config)
             .insert_resource(ParticleStore::default())
             .insert_resource(SimTick::default())
@@ -22,6 +26,9 @@ impl Plugin for GenesisSimPlugin {
             .insert_resource(EnvironmentFields::default())
             .insert_resource(MetricsHistory::default())
             .insert_resource(SimRng::default())
+            .insert_resource(PhylogenyTree::default())
+            .insert_resource(SimCounters::default())
+            .insert_resource(grid)
             .add_plugins(systems::GenesisSystemsPlugin)
             .add_systems(Startup, spawn_initial_particles);
     }

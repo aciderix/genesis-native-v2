@@ -2,9 +2,11 @@ use bevy::prelude::*;
 use crate::config::SimConfig;
 use crate::particle_store::ParticleStore;
 use crate::resources::GroupRegistry;
+use genesis_core::cell_role::CellRole;
 use genesis_core::chemistry::NUM_CHEMICALS;
 
 /// Detect connected components of bonded particles (replaces organisms + colonies).
+/// Also assigns cell differentiation roles (Interior/Border).
 pub fn groups_system(
     mut store: ResMut<ParticleStore>,
     config: Res<SimConfig>,
@@ -88,6 +90,47 @@ pub fn groups_system(
         }
         entry.4 += store.energy[i];
     }
+
+    // Count group sizes for role assignment
+    let mut group_sizes: std::collections::HashMap<i32, usize> = std::collections::HashMap::new();
+    for i in 0..count {
+        if store.alive[i] && store.group_ids[i] >= 0 {
+            *group_sizes.entry(store.group_ids[i]).or_insert(0) += 1;
+        }
+    }
+
+    // ── Cell Differentiation: assign roles ──────────────────────────────
+    for i in 0..count {
+        if !store.alive[i] {
+            store.roles[i] = CellRole::Undifferentiated;
+            continue;
+        }
+
+        let gid = store.group_ids[i];
+        let gsize = group_sizes.get(&gid).copied().unwrap_or(1);
+
+        if gsize < config.group_min_size {
+            // Solo particles are undifferentiated
+            store.roles[i] = CellRole::Undifferentiated;
+        } else {
+            // Determine role based on bond count relative to group
+            let bond_count = store.bonds[i].len();
+            // Count how many bonds connect to same-group members
+            let group_bond_count = store.bonds[i].iter()
+                .filter(|&&(j, _)| j < count && store.alive[j] && store.group_ids[j] == gid)
+                .count();
+
+            if group_bond_count >= 3 {
+                // Well-connected → interior cell
+                store.roles[i] = CellRole::Interior;
+            } else {
+                // Fewer connections → border cell
+                store.roles[i] = CellRole::Border;
+            }
+        }
+    }
+
+    // Build registry entries
     for (id, (member_count, cx, cy, mut avg_chem, total_energy)) in group_data {
         if member_count < config.group_min_size {
             continue;

@@ -12,3 +12,4 @@ bincode = { workspace = true }
 flate2 = { workspace = true }
 serde_json = { workspace = true }
 genesis-core = { path = "../genesis-core" }
+genesis-metrics = { path = "../genesis-metrics" }

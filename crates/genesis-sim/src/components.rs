@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use genesis_core::cell_role::CellRole;
 use genesis_core::chemistry::NUM_CHEMICALS;
 use genesis_core::genome::ComposableGenome;
 
@@ -67,3 +68,24 @@ pub struct Age(pub u64);
 /// Unique ID for each particle (for lineage tracking)
 #[derive(Component, Clone, Debug)]
 pub struct ParticleId(pub u32);
+
+/// Particle type enum for save/load compatibility
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub enum ParticleType {
+    Alpha,
+}
+
+impl ParticleType {
+    pub fn as_index(&self) -> usize {
+        match self {
+            ParticleType::Alpha => 0,
+        }
+    }
+
+    pub fn try_from_index(i: usize) -> Option<Self> {
+        match i {
+            0 => Some(ParticleType::Alpha),
+            _ => None,
+        }
+    }
+}

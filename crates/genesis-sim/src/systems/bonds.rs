@@ -2,17 +2,20 @@ use bevy::prelude::*;
 use crate::config::SimConfig;
 use crate::particle_store::ParticleStore;
 use crate::resources::SimRng;
+use crate::util::SpatialGrid;
 use genesis_core::chemistry::compute_bond_strength;
 
-/// Bond formation/breaking based on chemistry affinity.
+/// Bond formation/breaking based on chemistry affinity. Uses spatial hashing.
 pub fn bonds_system(
     mut store: ResMut<ParticleStore>,
     config: Res<SimConfig>,
     mut rng: ResMut<SimRng>,
+    grid: Res<SpatialGrid>,
 ) {
     let count = store.count;
+    let mut neighbors = Vec::new();
 
-    // Bond formation: check nearby unbonded pairs
+    // Bond formation: check nearby unbonded pairs using spatial grid
     let mut new_bonds: Vec<(usize, usize, f32)> = Vec::new();
     for i in 0..count {
         if !store.alive[i] {
@@ -21,14 +24,16 @@ pub fn bonds_system(
         if store.bonds[i].len() >= 4 {
             continue;
         }
-        for j in (i + 1)..count {
-            if !store.alive[j] {
+
+        grid.query_into(store.x[i], store.y[i], &mut neighbors);
+
+        for &j in &neighbors {
+            if j <= i || !store.alive[j] {
                 continue;
             }
             if store.bonds[j].len() >= 4 {
                 continue;
             }
-            // Check if already bonded
             if store.bonds[i].iter().any(|&(p, _)| p == j) {
                 continue;
             }
@@ -53,7 +58,7 @@ pub fn bonds_system(
         store.bonds[j].push((i, strength));
     }
 
-    // Bond breaking: bonds weaken and break
+    // Bond breaking
     for i in 0..count {
         if !store.alive[i] {
             continue;
@@ -68,20 +73,16 @@ pub fn bonds_system(
             let dx = store.x[j] - store.x[i];
             let dy = store.y[j] - store.y[i];
             let dist = (dx * dx + dy * dy).sqrt();
-            // Break if too far or too weak
             let current_strength = compute_bond_strength(&store.chem[i], &store.chem[j]);
             if dist > config.bond_max_distance * 2.0 || current_strength < 0.15 {
                 to_remove.push(b);
             } else {
-                // Update strength
                 store.bonds[i][b].1 = current_strength;
             }
         }
-        // Remove broken bonds (reverse order to preserve indices)
         for &b in to_remove.iter().rev() {
             let (j, _) = store.bonds[i][b];
             store.bonds[i].swap_remove(b);
-            // Also remove from partner
             if j < count {
                 if let Some(pos) = store.bonds[j].iter().position(|&(p, _)| p == i) {
                     store.bonds[j].swap_remove(pos);

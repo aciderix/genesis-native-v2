@@ -157,3 +157,72 @@ impl SimRng {
         (self.next_f32() * n as f32) as usize % n
     }
 }
+
+// ── Phylogenetic tree ───────────────────────────────────────────────────────
+
+/// A node in the phylogenetic tree.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PhyloNode {
+    pub parent_id: i32,
+    pub tick: u64,
+    pub generation: u32,
+    pub genome_hash: u64,
+    pub size: usize,
+}
+
+/// Full phylogenetic tree tracking all lineages.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct PhylogenyTree {
+    pub nodes: std::collections::HashMap<u32, PhyloNode>,
+}
+
+impl PhylogenyTree {
+    /// Register a birth event.
+    pub fn register_birth(&mut self, id: u32, parent_id: i32, tick: u64, generation: u32, genome_hash: u64) {
+        self.nodes.insert(id, PhyloNode {
+            parent_id,
+            tick,
+            generation,
+            genome_hash,
+            size: 1,
+        });
+    }
+
+    /// Count total nodes.
+    pub fn size(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// Compute tree depth (longest path to root).
+    pub fn max_depth(&self) -> u32 {
+        self.nodes.values().map(|n| n.generation).max().unwrap_or(0)
+    }
+
+    /// Count unique lineages (nodes with no children that are roots).
+    pub fn num_leaves(&self) -> usize {
+        let parents: std::collections::HashSet<i32> = self.nodes.values()
+            .map(|n| n.parent_id)
+            .collect();
+        // Nodes whose id is not a parent of anyone
+        self.nodes.keys()
+            .filter(|&&id| !parents.contains(&(id as i32)))
+            .count()
+    }
+
+    /// Prune old nodes to keep memory bounded (keep last N generations).
+    pub fn prune(&mut self, max_generation_depth: u32) {
+        if self.nodes.is_empty() { return; }
+        let max_gen = self.max_depth();
+        if max_gen <= max_generation_depth { return; }
+        let cutoff = max_gen - max_generation_depth;
+        self.nodes.retain(|_, n| n.generation >= cutoff);
+    }
+}
+
+/// Simulation counters for save/load compatibility.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct SimCounters {
+    pub total_repro: u64,
+    pub total_pred: u64,
+    pub total_sexual_repro: u64,
+}

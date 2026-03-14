@@ -1,15 +1,18 @@
 use bevy::prelude::*;
 use crate::config::SimConfig;
 use crate::particle_store::ParticleStore;
-use crate::resources::SimRng;
+use crate::resources::{PhylogenyTree, SimCounters, SimRng};
 use genesis_core::chemistry::NUM_CHEMICALS;
 use genesis_core::genome::{crossover, ComposableGenome};
+use genesis_core::metrics::reaction_hash;
 
-/// Composable genome crossover and mutation.
+/// Composable genome crossover and mutation with phylogenetic tracking.
 pub fn reproduction_system(
     mut store: ResMut<ParticleStore>,
     config: Res<SimConfig>,
     mut rng: ResMut<SimRng>,
+    mut phylogeny: ResMut<PhylogenyTree>,
+    mut counters: ResMut<SimCounters>,
 ) {
     if store.count >= config.max_particles {
         return;
@@ -41,23 +44,20 @@ pub fn reproduction_system(
         }
 
         // Find a bonded partner for sexual reproduction, or reproduce asexually
-        let child_genome = if !store.bonds[i].is_empty() {
+        let (child_genome, is_sexual) = if !store.bonds[i].is_empty() {
             let bond_idx = rng.next_usize(store.bonds[i].len());
             let (partner, _) = store.bonds[i][bond_idx];
             if partner < count
                 && store.alive[partner]
                 && store.energy[partner] > config.reproduction_cost * 0.5
             {
-                // Sexual reproduction: crossover
                 let mut rng_fn = || rng.next_f32();
-                crossover(&store.genomes[i], &store.genomes[partner], &mut rng_fn)
+                (crossover(&store.genomes[i], &store.genomes[partner], &mut rng_fn), true)
             } else {
-                // Asexual: clone
-                store.genomes[i].clone()
+                (store.genomes[i].clone(), false)
             }
         } else {
-            // Asexual: clone
-            store.genomes[i].clone()
+            (store.genomes[i].clone(), false)
         };
 
         // Mutate
@@ -76,6 +76,12 @@ pub fn reproduction_system(
         let parent_id = store.particle_ids[i] as i32;
         let generation = store.generations[i] + 1;
 
+        // Track counters
+        counters.total_repro += 1;
+        if is_sexual {
+            counters.total_sexual_repro += 1;
+        }
+
         offspring.push((
             ox,
             oy,
@@ -87,8 +93,23 @@ pub fn reproduction_system(
         ));
     }
 
-    // Add offspring
+    // Add offspring and register in phylogeny tree
     for (x, y, chem, genome, energy, parent_id, generation) in offspring {
-        store.add_particle(x, y, chem, genome, energy, parent_id, generation);
+        // Compute genome hash for phylogenetic tracking
+        let genome_hash = genome.reactions.iter()
+            .take(3)
+            .enumerate()
+            .fold(0u64, |h, (idx, r)| h ^ reaction_hash(r).wrapping_mul(idx as u64 + 1));
+
+        let idx = store.add_particle(x, y, chem, genome, energy, parent_id, generation);
+        let child_id = store.particle_ids[idx];
+
+        // Register in phylogenetic tree
+        phylogeny.register_birth(child_id, parent_id, 0, generation, genome_hash);
+    }
+
+    // Prune phylogeny to prevent unbounded growth (keep last 500 generations)
+    if phylogeny.size() > 10000 {
+        phylogeny.prune(500);
     }
 }

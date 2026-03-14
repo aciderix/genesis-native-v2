@@ -1,22 +1,34 @@
 use bevy::prelude::*;
 use crate::config::SimConfig;
 use crate::particle_store::ParticleStore;
+use crate::util::SpatialGrid;
 use genesis_core::chemistry::{compute_affinity, motor_force};
 
-/// Forces are chemistry-driven. No type-based force matrix.
-pub fn forces_system(mut store: ResMut<ParticleStore>, config: Res<SimConfig>) {
+/// Forces are chemistry-driven. Uses spatial hashing for O(n) neighbor lookups.
+/// Note: SpatialGrid is rebuilt by sensing_system which runs earlier in the chain.
+pub fn forces_system(
+    mut store: ResMut<ParticleStore>,
+    config: Res<SimConfig>,
+    grid: Res<SpatialGrid>,
+) {
     let count = store.count;
+
     // Collect forces in temporary buffer
     let mut fx = vec![0.0f32; count];
     let mut fy = vec![0.0f32; count];
 
-    // Pairwise interactions
+    let mut neighbors = Vec::new();
+
+    // Spatial-hashed pairwise interactions
     for i in 0..count {
         if !store.alive[i] {
             continue;
         }
-        for j in (i + 1)..count {
-            if !store.alive[j] {
+
+        grid.query_into(store.x[i], store.y[i], &mut neighbors);
+
+        for &j in &neighbors {
+            if j <= i || !store.alive[j] {
                 continue;
             }
             let dx = store.x[j] - store.x[i];
@@ -80,7 +92,6 @@ pub fn forces_system(mut store: ResMut<ParticleStore>, config: Res<SimConfig>) {
         if !store.alive[i] {
             continue;
         }
-        // Motor force from chemistry
         let motor = motor_force(&store.chem[i]);
         let angle =
             (store.particle_ids[i] as f32 * 0.1 + store.ages[i] as f32 * 0.01).sin();

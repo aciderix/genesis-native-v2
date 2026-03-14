@@ -9,6 +9,8 @@ pub struct ComposableGenome {
     pub reactions: Vec<Reaction>,
     /// Initial chemical concentrations for offspring.
     pub initial_chem: [f32; NUM_CHEMICALS],
+    /// Behavior rules: sensor→action mappings.
+    pub behaviors: Vec<BehaviorRule>,
 }
 
 // ── Helper: create a random reaction ────────────────────────────────────────
@@ -60,9 +62,16 @@ impl ComposableGenome {
             *c = rng();
         }
 
+        // Start with 1-2 random behaviors
+        let num_behaviors = if rng() < 0.5 { 1 } else { 2 };
+        let behaviors: Vec<BehaviorRule> = (0..num_behaviors)
+            .map(|_| random_behavior(rng))
+            .collect();
+
         ComposableGenome {
             reactions,
             initial_chem,
+            behaviors,
         }
     }
 
@@ -149,6 +158,9 @@ impl ComposableGenome {
             }
         }
 
+        // Mutate behaviors
+        mutate_behaviors(&mut self.behaviors, rng);
+
         // Also slightly mutate initial_chem (5% per channel)
         for c in self.initial_chem.iter_mut() {
             if rng() < 0.05 {
@@ -162,7 +174,7 @@ impl ComposableGenome {
     /// Hash each reaction to a `u64`, then count the number of unique
     /// substrings (fragments) needed to reconstruct the sequence.
     pub fn assembly_index(&self) -> usize {
-        if self.reactions.is_empty() {
+        if self.reactions.is_empty() && self.behaviors.is_empty() {
             return 0;
         }
 
@@ -237,9 +249,25 @@ pub fn crossover(
         initial_chem[k] = (parent_a.initial_chem[k] + parent_b.initial_chem[k]) * 0.5;
     }
 
+    // Crossover behaviors: take first half of A, second half of B
+    let bcut_a = if parent_a.behaviors.is_empty() { 0 } else {
+        (rng() * parent_a.behaviors.len() as f32) as usize % parent_a.behaviors.len()
+    };
+    let bcut_b = if parent_b.behaviors.is_empty() { 0 } else {
+        (rng() * parent_b.behaviors.len() as f32) as usize % parent_b.behaviors.len()
+    };
+    let mut behaviors = Vec::new();
+    for b in parent_a.behaviors.iter().take(bcut_a) {
+        behaviors.push(b.clone());
+    }
+    for b in parent_b.behaviors.iter().skip(bcut_b) {
+        behaviors.push(b.clone());
+    }
+
     ComposableGenome {
         reactions,
         initial_chem,
+        behaviors,
     }
 }
 
@@ -272,4 +300,126 @@ fn hash_reaction(r: &Reaction) -> u64 {
     h = h.wrapping_mul(prime);
 
     h
+}
+
+// ── Behavior system types ───────────────────────────────────────────────────
+
+use crate::cell_role::CellRole;
+
+/// Condition that a sensor must satisfy for a behavior rule to fire.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum SensorCondition {
+    /// Own chemical channel above threshold.
+    ChemAbove(usize, f32),
+    /// Own chemical channel below threshold.
+    ChemBelow(usize, f32),
+    /// Energy above threshold.
+    EnergyAbove(f32),
+    /// Energy below threshold.
+    EnergyBelow(f32),
+    /// Number of neighbors in interaction radius above threshold.
+    NeighborCountAbove(usize),
+    /// Number of neighbors below threshold.
+    NeighborCountBelow(usize),
+    /// Has at least one bond.
+    HasBond,
+    /// Has no bonds.
+    NoBond,
+    /// Group size above threshold.
+    GroupSizeAbove(usize),
+    /// Signal strength (chem[3] from environment) above threshold.
+    SignalAbove(f32),
+    /// Cell differentiation role matches.
+    RoleIs(CellRole),
+    /// Always true — unconditional rule.
+    Always,
+}
+
+/// Action to execute when a behavior rule fires.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum BehaviorAction {
+    /// Move toward the gradient of environment chemical channel.
+    MoveToward(usize),
+    /// Move away from the gradient of environment chemical channel.
+    MoveAway(usize),
+    /// Emit chemical signal: deposit amount on environment channel.
+    Emit(usize, f32),
+    /// Move toward nearest neighbor.
+    SeekNeighbor,
+    /// Move away from nearest neighbor.
+    FleeNeighbor,
+    /// Boost motor force by amount (added to chem[5] effect).
+    BoostMotor(f32),
+    /// Follow the gradient of signal channel (chem[3]) in the environment.
+    FollowSignal,
+}
+
+/// A behavior rule: if condition is met, execute action with given weight.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct BehaviorRule {
+    pub condition: SensorCondition,
+    pub action: BehaviorAction,
+    /// Strength multiplier for the action.
+    pub weight: f32,
+}
+
+/// Generate a random behavior rule.
+pub fn random_behavior(rng: &mut dyn FnMut() -> f32) -> BehaviorRule {
+    let condition = match (rng() * 8.0) as u32 {
+        0 => SensorCondition::ChemAbove(
+            (rng() * NUM_CHEMICALS as f32) as usize % NUM_CHEMICALS,
+            rng() * 0.8,
+        ),
+        1 => SensorCondition::ChemBelow(
+            (rng() * NUM_CHEMICALS as f32) as usize % NUM_CHEMICALS,
+            rng() * 0.5 + 0.1,
+        ),
+        2 => SensorCondition::EnergyAbove(rng() * 2.0 + 0.5),
+        3 => SensorCondition::EnergyBelow(rng() * 1.5 + 0.3),
+        4 => SensorCondition::NeighborCountAbove((rng() * 5.0) as usize),
+        5 => SensorCondition::HasBond,
+        6 => SensorCondition::NoBond,
+        _ => SensorCondition::Always,
+    };
+
+    let action = match (rng() * 6.0) as u32 {
+        0 => BehaviorAction::MoveToward(
+            (rng() * NUM_CHEMICALS as f32) as usize % NUM_CHEMICALS,
+        ),
+        1 => BehaviorAction::MoveAway(
+            (rng() * NUM_CHEMICALS as f32) as usize % NUM_CHEMICALS,
+        ),
+        2 => BehaviorAction::Emit(
+            (rng() * NUM_CHEMICALS as f32) as usize % NUM_CHEMICALS,
+            rng() * 0.1,
+        ),
+        3 => BehaviorAction::SeekNeighbor,
+        4 => BehaviorAction::FleeNeighbor,
+        _ => BehaviorAction::BoostMotor(rng() * 0.5),
+    };
+
+    BehaviorRule {
+        condition,
+        action,
+        weight: rng() * 0.5 + 0.1,
+    }
+}
+
+/// Mutate a list of behavior rules (same philosophy as reaction mutations).
+pub fn mutate_behaviors(behaviors: &mut Vec<BehaviorRule>, rng: &mut dyn FnMut() -> f32) {
+    // Point mutation: modify weight (5% per rule)
+    for b in behaviors.iter_mut() {
+        if rng() < 0.05 {
+            b.weight = (b.weight + (rng() - 0.5) * 0.1).clamp(0.01, 1.0);
+        }
+    }
+    // Insertion (3%)
+    if rng() < 0.03 {
+        behaviors.push(random_behavior(rng));
+    }
+    // Deletion (2%, keep at least 0)
+    if rng() < 0.02 && !behaviors.is_empty() {
+        let idx = (rng() * behaviors.len() as f32) as usize % behaviors.len();
+        behaviors.remove(idx);
+    }
 }

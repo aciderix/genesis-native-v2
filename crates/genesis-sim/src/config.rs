@@ -47,6 +47,19 @@ pub struct SimConfig {
     // Environment
     pub num_env_fields: usize,
     pub env_source_strength: f32,
+
+    // Predation
+    pub predation_radius: f32,
+    pub predation_efficiency: f32,
+    pub predation_cost: f32,
+    pub predation_min_energy_ratio: f32,
+
+    // Sensing
+    pub sensing_radius: f32,
+
+    // Signaling
+    pub signal_deposit_rate: f32,
+    pub signal_decay_rate: f32,
 }
 
 impl Default for SimConfig {
@@ -80,6 +93,16 @@ impl Default for SimConfig {
             group_min_size: 2,
             num_env_fields: NUM_CHEMICALS,
             env_source_strength: 0.01,
+
+            predation_radius: 15.0,
+            predation_efficiency: 0.6,
+            predation_cost: 0.3,
+            predation_min_energy_ratio: 1.5,
+
+            sensing_radius: 40.0,
+
+            signal_deposit_rate: 0.05,
+            signal_decay_rate: 0.005,
         }
     }
 }
